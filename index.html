@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dalio Cycle Sentinel v2.0 — 達里歐週期哨兵</title>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+</head>
+<body>
+
+  <!-- Overlay Loader -->
+  <div id="loader-overlay" class="loader-overlay active">
+    <div class="spinner"></div>
+    <span style="color:var(--text-secondary);font-family:var(--font-mono)">INITIALIZING SENTINEL NODE...</span>
+  </div>
+
+  <div class="app-container">
+    
+    <!-- ═══════ HERO ═══════ -->
+    <header class="header-bar panel--top">
+      <div class="brand delay-1">
+        <h1 class="brand__title">Dalio Cycle Sentinel v2.0</h1>
+        <p class="brand__subtitle">《債務危機》 × 《世界秩序》 × 《國家如何破產》</p>
+      </div>
+      <div class="controls animate-slide-up delay-2">
+        <div id="data-status" class="data-status">
+          <span class="dot dot--pulse"></span>
+          <span>Awaiting Data...</span>
+        </div>
+        <div class="select-wrapper">
+          <select id="country-select" class="country-select">
+            <option value="US">🇺🇸 United States</option>
+          </select>
+        </div>
+        <button id="btn-docs" class="btn" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border);">📖 說明書</button>
+        <button id="btn-refresh" class="btn">🔄 Refresh Data</button>
+      </div>
+    </header>
+
+    <div class="dashboard-grid">
+
+      <!-- ═══════ LEFT PANEL: Macro & Debt Cycle ═══════ -->
+      <div class="panel--left" style="display: flex; flex-direction: column; gap: var(--space-lg);">
+        
+        <!-- Debt Cycle Panel -->
+        <section class="glass-panel animate-slide-up delay-2">
+          <div class="panel-header">
+            <h2 class="panel-title"><span class="panel-icon">⛰️</span> 債務週期定位 Debt Cycle</h2>
+            <span style="font-size:0.85rem;color:var(--text-muted)">Based on Big Debt Crises</span>
+          </div>
+
+          <div class="cycle-tracker">
+            <div class="cycle-bar" id="cycle-nodes-container">
+              <!-- JS Injected -->
+            </div>
+            
+            <div id="cycle-details" class="cycle-info">
+              <h3 class="cycle-info__title" id="cycle-title">Loading...</h3>
+              <p class="cycle-info__desc" id="cycle-desc">...</p>
+              <div class="evidence-box" id="cycle-evidence" style="margin-top:12px;">佐證數據: 載入中...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Macro Quadrant Panel -->
+        <section class="glass-panel animate-slide-up delay-3">
+          <div class="panel-header">
+            <h2 class="panel-title"><span class="panel-icon">🧭</span> 宏觀經濟四大象限</h2>
+            <span style="font-size:0.85rem;color:var(--text-muted)">Bridgewater Growth/Inflation Matrix</span>
+          </div>
+
+          <div class="quadrant-matrix">
+            <div class="quad-box" id="quad-OVERHEATING">
+              <span class="quad-title">高增長 / 高通脹</span>
+              <span class="quad-desc">經濟過熱 (Overheating)</span>
+            </div>
+            <div class="quad-box" id="quad-GOLDILOCKS">
+              <span class="quad-title">高增長 / 低通脹</span>
+              <span class="quad-desc">金髮女孩 (Goldilocks)</span>
+            </div>
+            <div class="quad-box" id="quad-STAGFLATION">
+              <span class="quad-title">低增長 / 高通脹</span>
+              <span class="quad-desc">停滯性通膨 (Stagflation)</span>
+            </div>
+            <div class="quad-box" id="quad-DEFLATIONARY_BUST">
+              <span class="quad-title">低增長 / 低通脹</span>
+              <span class="quad-desc">通縮性衰退 (Deflationary Bust)</span>
+            </div>
+            <div class="quad-axis-y">Growth</div>
+            <div class="quad-axis-x">Inflation</div>
+          </div>
+          <div class="evidence-box" id="quad-evidence">佐證數據: 載入中...</div>
+        </section>
+
+        <!-- National Power & Conflict Panel (Grid 2 col) -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg);">
+          
+          <!-- Power Radar -->
+          <section class="glass-panel animate-slide-up delay-4">
+            <div class="panel-header" style="margin-bottom:0; border-bottom:none">
+              <h2 class="panel-title" style="font-size:1.1rem"><span class="panel-icon">🌐</span> 國家實力雷達</h2>
+              <span id="power-score-badge" style="font-family:var(--font-mono);font-weight:700;color:var(--info);">0/100</span>
+            </div>
+            <div style="position:relative; width:100%; aspect-ratio:1;">
+              <canvas id="power-radar-chart"></canvas>
+            </div>
+            <div style="text-align:right; margin-top:8px;">
+               <a href="#" id="reserve-currency-link" target="_blank" style="font-size:0.75rem; color:var(--text-secondary); text-decoration:underline;">手動查詢儲備貨幣比重 →</a>
+            </div>
+          </section>
+
+          <!-- Conflict Monitor -->
+          <section class="glass-panel animate-slide-up delay-4">
+            <div class="panel-header">
+              <h2 class="panel-title" style="font-size:1.1rem"><span class="panel-icon">⚠️</span> 內部/外部衝突指數</h2>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:var(--space-md)">
+              
+              <div class="stat-card">
+                <span class="stat-label">Internal Conflict Index (Gini+Unemp)</span>
+                <span class="stat-value" id="ici-value">--/10 <span class="stat-unit" id="ici-status"></span></span>
+              </div>
+              
+              <div class="stat-card">
+                <span class="stat-label">External Conflict Index (GDELT)</span>
+                <span class="stat-value" id="eci-value">--/10 <span class="stat-unit" id="eci-status"></span></span>
+                <a href="#" id="gdelt-link" target="_blank" style="font-size:0.75rem;margin-top:4px">手動查詢 GDELT →</a>
+              </div>
+
+              <div class="stat-card">
+                <span class="stat-label">Currency Devaluation Risk</span>
+                <span class="stat-value" style="font-size:1.1rem; color:var(--text-secondary)" id="currency-risk">--</span>
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- ═══════ RIGHT PANEL: Portfolio & Log ═══════ -->
+      <div class="panel--right" style="display: flex; flex-direction: column; gap: var(--space-lg);">
+        
+        <!-- WHAT-IF SIMULATOR -->
+        <section class="glass-panel animate-slide-up delay-1">
+          <div class="panel-header" style="margin-bottom:var(--space-sm); padding-bottom:var(--space-sm);">
+            <h2 class="panel-title"><span class="panel-icon">🎛️</span> 參數沙盤推演</h2>
+            <span style="font-size:0.8rem;color:var(--text-muted)">What-If Simulator</span>
+          </div>
+          
+          <div class="simulator-grid">
+            <div class="sim-group">
+              <label>GDP增長(%)</label>
+              <input type="number" step="0.1" id="sim-realGDPGrowth" class="simulator-input">
+            </div>
+            <div class="sim-group">
+              <label>CPI通膨(%)</label>
+              <input type="number" step="0.1" id="sim-inflation" class="simulator-input">
+            </div>
+            <div class="sim-group">
+              <label>10Y-2Y利差</label>
+              <input type="number" step="0.01" id="sim-spread10Y2Y" class="simulator-input">
+            </div>
+            <div class="sim-group">
+              <label>總債務/GDP</label>
+              <input type="number" step="0.1" id="sim-debtGDP" class="simulator-input">
+            </div>
+            <div class="sim-group">
+              <label>信用利差(%)</label>
+              <input type="number" step="0.01" id="sim-creditSpread" class="simulator-input">
+            </div>
+            <div class="sim-group">
+              <label>10年公債(%)</label>
+              <input type="number" step="0.01" id="sim-bond10Y" class="simulator-input">
+            </div>
+          </div>
+        </section>
+
+        <!-- Portfolio Allocation -->
+        <section class="glass-panel animate-slide-up delay-3">
+          <div class="panel-header">
+            <h2 class="panel-title"><span class="panel-icon">⚖️</span> 資產配置建議</h2>
+          </div>
+          
+          <div style="width: 200px; margin: 0 auto; position:relative">
+            <canvas id="portfolio-chart"></canvas>
+          </div>
+
+          <table class="portfolio-table" id="portfolio-table">
+            <thead>
+              <tr>
+                <th>資產</th>
+                <th>權重</th>
+                <th>建議</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- JS Injected -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Principles Feed -->
+        <section class="glass-panel animate-slide-up delay-4" style="flex:1; display:flex; flex-direction:column">
+          <div class="panel-header">
+            <h2 class="panel-title"><span class="panel-icon">📖</span> 達里歐原則溯源</h2>
+          </div>
+          <div class="principles-list" id="principles-feed">
+             <span style="color:var(--text-muted);font-size:0.9rem">Analyzing macro conditions...</span>
+          </div>
+        </section>
+
+      </div>
+
+    </div> <!-- /dashboard-grid -->
+  </div> <!-- /app-container -->
+
+  <!-- Documentation Modal -->
+  <div id="docs-modal" class="modal-overlay">
+    <div class="modal-content glass-panel">
+      <button id="btn-close-modal" class="modal-close">&times;</button>
+      
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-target="doc-debt">📖 債務週期指南</button>
+        <button class="modal-tab" data-target="doc-macro">🧭 四大象限指南</button>
+      </div>
+
+      <div class="modal-body markdown-body">
+        
+        <!-- Debt Cycle Content -->
+        <div id="doc-debt" class="doc-panel active">
+          <h2>🔄 債務週期的迴圈與先後順序</h2>
+          <p>每一次的經濟衰退到繁榮，皆是由債務（信貸）的擴張與收縮所驅動。儘管中央銀行的極端政策可能縮短或拉長某階段，但整體演進依然有跡可循：</p>
+          <div style="background:#1e293b; padding:15px; border-radius:8px; margin: 15px 0;">
+            <b>早期復甦</b> ➔ <b>泡沫期</b> ➔ <b>頂部</b> ➔ <b>蕭條期</b> (可分歧為: 和諧去槓桿 或 通膨型蕭條) ➔ <b>正常化</b>
+          </div>
+          <div class="alert alert-note">在這個循環中，<b>信貸是經濟的引擎</b>。當信貸擴張快於產出時即形成「泡沫」，當信貸無以為繼時即觸發「頂部」與「蕭條」。</div>
+          
+          <h3>階段判定邏輯與投資策略</h3>
+          <ul>
+            <li><b>1. 早期復甦 (Early Recovery)</b>: 實質 GDP 強勁反彈 (> 2%)。長端殖利率小於名目 GDP 增速，且殖利率曲線呈正斜率。<b>(加碼股票、減碼現金)</b></li>
+            <li><b>2. 泡沫期 (Bubble)</b>: M2 貨幣成長率顯著高出實質經濟增長。債務比急速攀升。<b>(股票微調降、加碼黃金)</b></li>
+            <li><b>3. 頂部 (Top)</b>: 殖利率曲線倒掛 (10Y-2Y &lt; 0)。利率高於經濟增長。<b>(加碼現金與公債避險、大砍股票)</b></li>
+            <li><b>4. 蕭條期 (Depression)</b>: 實質 GDP 急墜。信用利差劇烈擴張。<b>(加碼長天期公債 TLT 賺取資本利得、減碼股票)</b>
+                <br><br><div class="alert alert-warning"><b>🚨 通膨型蕭條分支</b>: 若蕭條期通膨過熱，須暴力加碼黃金與抗通膨債，防禦法幣崩潰。</div>
+            </li>
+            <li><b>5. 和諧去槓桿 (Beautiful Deleveraging)</b>: M2 供給大於 GDP 增長，通膨維持溫和 2~4%，重拾正增長。<b>(加碼黃金與股票)</b></li>
+            <li><b>6. 正常化 (Normalization)</b>: 無異象，遵循 All Weather 黃金比例。</li>
+          </ul>
+        </div>
+
+        <!-- 4 Quadrants Content -->
+        <div id="doc-macro" class="doc-panel">
+          <h2>🗂️ 經濟四象限與判斷條件</h2>
+          <p>市場無時無刻不處於四個象限之一。系統藉由 FRED API 實時抓取的 <b>CPI</b> 與 <b>GDP</b> 進行精確打點。</p>
+          <ul>
+            <li><b>1. 高增長 / 低通脹 (Goldilocks 金髮女孩經濟)</b>
+              <br>條件：GDP YoY > 2.5%, CPI &lt; 3.0%
+              <br>配置：<b>提升(↑)股票與公債、降低(↓)黃金與商品。</b>
+            </li>
+            <li><b>2. 高增長 / 高通脹 (Overheating 經濟過熱)</b>
+              <br>條件：GDP YoY > 2.5%, CPI > 4.5%
+              <br>配置：<b>提升(↑)大宗商品與黃金、降低(↓)長天期公債。</b>
+            </li>
+            <li><b>3. 低增長 / 低通脹 (Deflationary Bust 通縮性衰退)</b>
+              <br>條件：GDP YoY &lt; 1.5%, CPI &lt; 2.5%
+              <br>配置：<b>提升(↑)長中天期公債與現金、降低(↓)股票。</b>
+            </li>
+            <li><b>4. 低增長 / 高通脹 (Stagflation 停滯性通膨)</b>
+              <br>條件：GDP YoY &lt; 1.5%, CPI > 3.5%
+              <br>配置：<b>提升(↑)黃金與短期現金(避開存續期風險)、降低(↓)股票與長天期公債。</b>
+            </li>
+          </ul>
+          
+          <div class="alert alert-info">
+            <b>⚠️ 數據滯後防禦</b>: 若總體經濟數據延遲發布超過 30 天，系統底層會自動改採「移動平均」進行估值，並給出 ⚠️ 標籤確保不失真。
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/dalio-principles.js"></script>
+  <script src="js/macro-engine.js"></script>
+  <script src="js/data-fetcher.js"></script>
+  <script src="js/debt-cycle-engine.js"></script>
+  <script src="js/country-power-engine.js"></script>
+  <script src="js/conflict-monitor.js"></script>
+  <script src="js/portfolio-engine.js"></script>
+  <script src="js/narrative.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
