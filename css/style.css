@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap');
 
 /**
- * Dalio Cycle Sentinel v2.0
+ * Dalio Cycle Sentinel v3.0
  * ──────────────────────────────────────────────────────────
  * Core Design System
  * Theme: Premium Dark Mode + Glassmorphism + Dynamic Animations
@@ -1018,5 +1018,6 @@ a:hover {
 .alert-note { background: rgba(59,130,246,0.1); border-color: var(--info); color: #bfdbfe; }
 .alert-warning { background: rgba(245,158,11,0.1); border-color: var(--warning); color: #fde68a; }
 .alert-info { background: rgba(34,197,94,0.1); border-color: var(--success); color: #bbf7d0; }
- 
+
+ 
  
