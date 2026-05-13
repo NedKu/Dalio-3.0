@@ -14,7 +14,7 @@ const RealtimeEngine = (() => {
   const DEBT_CLOCK_BASE = 38981500000000; // ~$38.98 Trillion
   const DEBT_PER_SEC = 532.40;           // ~$532 USD per second
   const ESTIMATED_GDP = 28450000000000;   // Derived from 137% Debt-to-GDP ratio
-  const CLEVELAND_FED_NOWCAST = 3.58;    // % YoY CPI as of latest daily release
+  const CLEVELAND_FED_NOWCAST = 4.18;    // % YoY CPI as of May 13, 2026 (Inflation, year-over-year percent change)
 
   let startTime = Date.now();
   let liveClevelandFed = null;           // Live data from Cleveland Fed

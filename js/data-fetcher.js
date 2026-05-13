@@ -90,11 +90,12 @@ const DataFetcher = (() => {
   function parseClevelandNowcastTable(html) {
       if (!html || typeof html !== 'string') return null;
       
-      // Extract the table with inflation data
-      const tableMatch = html.match(/<table[^>]*>[\s\S]*?<tr><th[^>]*>Month<\/th><th[^>]*>CPI<\/th>[\s\S]*?<\/table>/);
-      if (!tableMatch) return null;
+      // CRITICAL: Extract YEAR-OVER-YEAR table ONLY (not month-over-month)
+      // Look for caption mentioning "year-over-year" to ensure we get the right table
+      const yoyTableMatch = html.match(/<table[^>]*>[\s\S]*?<caption>([^<]*year-over-year[^<]*)<\/caption>[\s\S]*?<\/table>/i);
+      if (!yoyTableMatch) return null;
       
-      const tableHtml = tableMatch[0];
+      const tableHtml = yoyTableMatch[0];
       
       // Extract the first row (most recent month) after headers
       const rowMatch = tableHtml.match(/<tr><td>([^<]+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/);
@@ -102,10 +103,10 @@ const DataFetcher = (() => {
       
       return {
           month: rowMatch[1].trim(),      // e.g., "May 2026"
-          cpi: rowMatch[2].trim(),        // "4.18"
+          cpi: rowMatch[2].trim(),        // "4.18" (year-over-year YoY)
           coreCpi: rowMatch[3].trim(),    // "2.82"
-          pce: rowMatch[4].trim(),        // "4.06"
-          corePce: rowMatch[5].trim(),    // "3.36"
+          pce: rowMatch[4].trim(),        // PCE YoY
+          corePce: rowMatch[5].trim(),    // Core PCE YoY
           updated: rowMatch[6].trim(),    // "05/13"
       };
   }
@@ -146,14 +147,32 @@ const DataFetcher = (() => {
               };
           }
           
-          // Fallback: try the JSON endpoint
-          const jsonUrl = `${CLEVELAND_FED_BASE}/${CLEVELAND_FED_QUARTER}`;
-          let data = await fetchJsonWithProxy(jsonUrl);
-          let value = parseClevelandNowcast(data);
+          // Fallback 1: try the JSON endpoint
+          try {
+              const jsonUrl = `${CLEVELAND_FED_BASE}/${CLEVELAND_FED_QUARTER}`;
+              let data = await fetchJsonWithProxy(jsonUrl);
+              let value = parseClevelandNowcast(data);
+              if (value !== null) {
+                  return {
+                      cpi: value,
+                      sourceUrl: jsonUrl,
+                      fallback: true,
+                      timestamp: new Date().toISOString()
+                  };
+              }
+          } catch(fallbackErr) {
+              console.warn('[Dalio3.0] JSON endpoint also failed:', fallbackErr);
+          }
+          
+          // Fallback 2: Return success with cpi=null to trigger default constant in RealtimeEngine
+          console.warn('[Dalio3.0] Both Cleveland Fed methods failed, will use default CPI constant');
           return {
-              cpi: value,
-              sourceUrl: jsonUrl,
-              fallback: true,
+              cpi: null,
+              coreCpi: null,
+              pce: null,
+              corePce: null,
+              sourceUrl: pageUrl,
+              error: 'Unable to parse Cleveland Fed data - using default',
               timestamp: new Date().toISOString()
           };
       } catch(err) {
