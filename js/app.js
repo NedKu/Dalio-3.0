@@ -163,7 +163,15 @@ const App = (() => {
     
     if (isRealtime) {
         RealtimeEngine.reset();
-        _startRealtimeTimer();
+        _setStatus('fetching', 'Fetching real-time sources...');
+        _fetchRealtimeSources().then(() => {
+            _startRealtimeTimer();
+            _render();
+        }).catch((err) => {
+            console.warn('[App] Error fetching realtime sources:', err);
+            _startRealtimeTimer();
+            _render();
+        });
     } else {
         _stopRealtimeTimer();
         // ── Restore original FRED data ──
@@ -172,8 +180,28 @@ const App = (() => {
             _populateSimulator();
         }
         _clearRealtimeBadges();
+        _setStatus('live', `Switched to Historical mode`);
     }
-    _render();
+  }
+
+  async function _fetchRealtimeSources() {
+    try {
+      const sources = await DataFetcher.fetchRealtimeSources();
+      
+      // Update RealtimeEngine with live data
+      if (sources.clevelandNowcast) {
+        RealtimeEngine.setClevelandFedData(sources.clevelandNowcast);
+      }
+      if (sources.usDebtClock) {
+        RealtimeEngine.setDebtClockData(sources.usDebtClock);
+      }
+      
+      console.log('[App] Realtime sources loaded:', sources);
+      _setStatus('live', `Real-time sources loaded — ${new Date().toLocaleTimeString()}`);
+    } catch(err) {
+      console.warn('[App] Failed to fetch realtime sources:', err);
+      _setStatus('stale', `Real-time sources unavailable`);
+    }
   }
 
   function _startRealtimeTimer() {
@@ -224,7 +252,7 @@ const App = (() => {
       if (!group) continue;
       group.classList.add('rt-override');
 
-      // Create or update the source badge
+      // Create or update the source badge with clickable link
       let badge = group.querySelector('.rt-source-badge');
       if (!badge) {
         badge = document.createElement('div');
@@ -235,7 +263,20 @@ const App = (() => {
       const origVal = state.originalMacroProc
         ? Number(state.originalMacroProc[key]).toFixed(decimals)
         : '?';
-      badge.innerHTML = `${meta.label} <span class="rt-orig">| FRED 原值: ${origVal}%</span>`;
+      
+      // Get realtime metadata for source link
+      const rtMeta = RealtimeEngine.getRealtimeMetadata();
+      let sourceHtml = `${meta.label}`;
+      
+      // Add clickable verification link
+      if (key === 'inflation' && rtMeta.clevelandFed && rtMeta.clevelandFed.sourceUrl) {
+        sourceHtml += ` <a href="${rtMeta.clevelandFed.sourceUrl}" target="_blank" class="rt-link" title="Verify at Cleveland Fed">🔗</a>`;
+      } else if (key === 'debtGDP' && rtMeta.debtClock && rtMeta.debtClock.sourceUrl) {
+        sourceHtml += ` <a href="${rtMeta.debtClock.sourceUrl}" target="_blank" class="rt-link" title="Verify at US Debt Clock">🔗</a>`;
+      }
+      
+      sourceHtml += ` <span class="rt-orig">| FRED 原值: ${origVal}%</span>`;
+      badge.innerHTML = sourceHtml;
     }
   }
 

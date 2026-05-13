@@ -142,6 +142,11 @@ const SentinelConfig = (() => {
     },
   };
 
+  const REALTIME_LINKS = {
+    CLEVELAND_FED: 'https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting',
+    US_DEBT_CLOCK: 'https://www.usdebtclock.org/'
+  };
+
   // ───── Debt Cycle: 6 Stages (Big Debt Crises) ─────
   const DEBT_CYCLE = {
     STAGES: {
@@ -325,7 +330,7 @@ const SentinelConfig = (() => {
 
   return Object.freeze({
     COUNTRIES, FRED, WORLD_BANK, GDELT, YAHOO,
-    MANUAL_LINKS, DEBT_CYCLE, COUNTRY_POWER, CONFLICT, PORTFOLIO, UI,
+    MANUAL_LINKS, REALTIME_LINKS, DEBT_CYCLE, COUNTRY_POWER, CONFLICT, PORTFOLIO, UI,
   });
 })();
 

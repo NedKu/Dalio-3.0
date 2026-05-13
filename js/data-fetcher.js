@@ -8,6 +8,11 @@ const DataFetcher = (() => {
   'use strict';
 
   const FRED_API_KEY = "dd0d0a4f684066a16deef50585fa053b";
+  const CLEVELAND_FED_BASE = 'https://www.clevelandfed.org/-/media/files/webcharts/inflationnowcasting';
+  const CLEVELAND_FED_QUARTER = 'nowcast_quarter.json';
+  const US_DEBT_CLOCK_URL = 'https://www.usdebtclock.org/';
+  const CORS_PROXY = 'https://corsproxy.io/?';
+  const ALL_ORIGINS = 'https://api.allorigins.win/get?url=';
 
   // --- Utility Fetchers with CORS Proxying ---
   
@@ -43,6 +48,217 @@ const DataFetcher = (() => {
           }
       }
       return { closes: validData };
+  }
+
+  async function fetchTextWithProxy(url) {
+      try {
+          let res = await fetch(CORS_PROXY + encodeURIComponent(url), { signal: AbortSignal.timeout(8000) });
+          if (res.ok) return await res.text();
+          throw new Error('CORS proxy failed for text fetch');
+      } catch(err) {
+          try {
+              let res = await fetch(ALL_ORIGINS + encodeURIComponent(url), { signal: AbortSignal.timeout(8000) });
+              if (!res.ok) throw new Error('AllOrigins failed for text fetch');
+              let payload = await res.json();
+              if (payload && payload.contents != null) return payload.contents;
+              throw new Error('AllOrigins returned invalid payload');
+          } catch(e) {
+              console.warn(`[Dalio3.0] Proxy text fetch failed for ${url}:`, e);
+              throw e;
+          }
+      }
+  }
+
+  async function fetchJsonWithProxy(url) {
+      try {
+          let res = await fetch(CORS_PROXY + encodeURIComponent(url), { signal: AbortSignal.timeout(8000) });
+          if (res.ok) return await res.json();
+          throw new Error('CORS proxy failed for JSON fetch');
+      } catch(err) {
+          try {
+              let res = await fetch(ALL_ORIGINS + encodeURIComponent(url), { signal: AbortSignal.timeout(8000) });
+              if (!res.ok) throw new Error('AllOrigins failed for JSON fetch');
+              let payload = await res.json();
+              return JSON.parse(payload.contents);
+          } catch(e) {
+              console.warn(`[Dalio3.0] Proxy JSON fetch failed for ${url}:`, e);
+              throw e;
+          }
+      }
+  }
+
+  function parseClevelandNowcastTable(html) {
+      if (!html || typeof html !== 'string') return null;
+      
+      // Extract the table with inflation data
+      const tableMatch = html.match(/<table[^>]*>[\s\S]*?<tr><th[^>]*>Month<\/th><th[^>]*>CPI<\/th>[\s\S]*?<\/table>/);
+      if (!tableMatch) return null;
+      
+      const tableHtml = tableMatch[0];
+      
+      // Extract the first row (most recent month) after headers
+      const rowMatch = tableHtml.match(/<tr><td>([^<]+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/);
+      if (!rowMatch) return null;
+      
+      return {
+          month: rowMatch[1].trim(),      // e.g., "May 2026"
+          cpi: rowMatch[2].trim(),        // "4.18"
+          coreCpi: rowMatch[3].trim(),    // "2.82"
+          pce: rowMatch[4].trim(),        // "4.06"
+          corePce: rowMatch[5].trim(),    // "3.36"
+          updated: rowMatch[6].trim(),    // "05/13"
+      };
+  }
+
+  function parseClevelandNowcast(jsonData) {
+      if (!Array.isArray(jsonData)) return null;
+      for (let item of jsonData) {
+          if (!item || !Array.isArray(item.dataset)) continue;
+          let series = item.dataset.find(s => s && typeof s.seriesname === 'string' && s.seriesname.toLowerCase().includes('cpi inflation'));
+          if (!series || !Array.isArray(series.data)) continue;
+          for (let i = series.data.length - 1; i >= 0; i--) {
+              let value = series.data[i] && series.data[i].value;
+              if (value !== '' && value != null && !Number.isNaN(parseFloat(value))) {
+                  return parseFloat(value);
+              }
+          }
+      }
+      return null;
+  }
+
+  async function fetchClevelandNowcast() {
+      const pageUrl = 'https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting';
+      try {
+          // First try to fetch the HTML page to get the latest table data
+          let html = await fetchTextWithProxy(pageUrl);
+          let tableData = parseClevelandNowcastTable(html);
+          
+          if (tableData) {
+              return {
+                  cpi: parseFloat(tableData.cpi) || null,
+                  coreCpi: parseFloat(tableData.coreCpi) || null,
+                  pce: parseFloat(tableData.pce) || null,
+                  corePce: parseFloat(tableData.corePce) || null,
+                  month: tableData.month,
+                  updated: tableData.updated,
+                  sourceUrl: pageUrl,
+                  timestamp: new Date().toISOString()
+              };
+          }
+          
+          // Fallback: try the JSON endpoint
+          const jsonUrl = `${CLEVELAND_FED_BASE}/${CLEVELAND_FED_QUARTER}`;
+          let data = await fetchJsonWithProxy(jsonUrl);
+          let value = parseClevelandNowcast(data);
+          return {
+              cpi: value,
+              sourceUrl: jsonUrl,
+              fallback: true,
+              timestamp: new Date().toISOString()
+          };
+      } catch(err) {
+          console.warn('[Dalio3.0] Error fetching Cleveland Fed nowcast:', err);
+          return {
+              cpi: null,
+              coreCpi: null,
+              pce: null,
+              corePce: null,
+              sourceUrl: pageUrl,
+              error: err.message,
+              timestamp: new Date().toISOString()
+          };
+      }
+  }
+
+  function safeEvaluateDebtExpression(raw) {
+      if (!raw || typeof raw !== 'string') return null;
+      const cleaned = raw.replace(/[^0-9.\*+\-\/()\s]/g, ' ');
+      const tokens = cleaned.split(/\s+/).filter(Boolean);
+      for (let start = 0; start < tokens.length; start++) {
+          const expr = tokens.slice(start).join('');
+          try {
+              const value = eval(expr);
+              if (typeof value === 'number' && Number.isFinite(value) && value > 1e8 && value < 1e11) {
+                  return value;
+              }
+          } catch (e) {
+              continue;
+          }
+      }
+      return null;
+  }
+
+  function parseUSDebtClock(html) {
+      if (!html || typeof html !== 'string') return null;
+
+      function extractBlock(startToken, endToken) {
+          const start = html.indexOf(startToken);
+          if (start === -1) return null;
+          const end = html.indexOf(endToken, start + startToken.length);
+          return html.substring(start, end > start ? end : start + 400);
+      }
+
+      const debtBlock = extractBlock('var X1a890 =', "document.getElementById('X1a890')");
+      const gdpBlock = extractBlock('var X1a942 =', "document.getElementById('X1a942')");
+      if (!debtBlock || !gdpBlock) return null;
+
+      const parseValue = (regexp, block) => {
+          const match = block.match(regexp);
+          return match ? parseFloat(match[1]) : null;
+      };
+
+      const debtBase = parseValue(/var X1a890 = ([0-9.]+);/, debtBlock);
+      const debtRate = parseValue(/var R[0-9a-zA-Z]+ = ([0-9.]+);/, debtBlock);
+      const debtOffset = safeEvaluateDebtExpression((debtBlock.match(/var Y[0-9a-zA-Z]+ = ([^;]+);/) || [])[1]);
+
+      const gdpBase = parseValue(/var X1a942 = ([0-9.]+);/, gdpBlock);
+      const gdpRate = parseValue(/var R[0-9a-zA-Z]+ = ([0-9.]+);/, gdpBlock);
+      const gdpOffset = safeEvaluateDebtExpression((gdpBlock.match(/var Y[0-9a-zA-Z]+ = ([^;]+);/) || [])[1]);
+
+      if (!debtBase || !debtRate || !debtOffset || !gdpBase || !gdpRate || !gdpOffset) {
+          return null;
+      }
+
+      const nowSec = Date.now() / 1000;
+      const debtAbsolute = debtBase + (nowSec - debtOffset) * debtRate;
+      const gdpAbsolute = gdpBase + (nowSec - gdpOffset) * gdpRate;
+      const debtGDP = gdpAbsolute > 0 ? (debtAbsolute / gdpAbsolute) * 100 : null;
+
+      return {
+          debtBase,
+          debtRate,
+          debtOffset,
+          gdpBase,
+          gdpRate,
+          gdpOffset,
+          debtAbsolute,
+          gdpAbsolute,
+          debtGDP,
+          sourceUrl: US_DEBT_CLOCK_URL
+      };
+  }
+
+  async function fetchUSDebtClock() {
+      try {
+          const html = await fetchTextWithProxy(US_DEBT_CLOCK_URL);
+          const parsed = parseUSDebtClock(html);
+          return parsed || { debtAbsolute: null, debtGDP: null, gdpAbsolute: null, sourceUrl: US_DEBT_CLOCK_URL, error: 'Parse failed' };
+      } catch(err) {
+          console.warn('[Dalio3.0] Error fetching US Debt Clock:', err);
+          return { debtAbsolute: null, debtGDP: null, gdpAbsolute: null, sourceUrl: US_DEBT_CLOCK_URL, error: err.message };
+      }
+  }
+
+  async function fetchRealtimeSources() {
+      const [cleveland, debtClock] = await Promise.all([
+          fetchClevelandNowcast(),
+          fetchUSDebtClock()
+      ]);
+      return {
+          clevelandNowcast: cleveland,
+          usDebtClock: debtClock,
+          lastUpdated: new Date().toISOString()
+      };
   }
 
   async function fetchFred(seriesId) {
@@ -237,7 +453,8 @@ const DataFetcher = (() => {
   }
 
   return Object.freeze({
-    fetchAllData
+    fetchAllData,
+    fetchRealtimeSources
   });
 
 })();
