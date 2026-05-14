@@ -91,14 +91,26 @@ const DataFetcher = (() => {
       if (!html || typeof html !== 'string') return null;
       
       // CRITICAL: Extract YEAR-OVER-YEAR table ONLY (not month-over-month)
-      // Look for caption mentioning "year-over-year" to ensure we get the right table
-      const yoyTableMatch = html.match(/<table[^>]*>[\s\S]*?<caption>([^<]*year-over-year[^<]*)<\/caption>[\s\S]*?<\/table>/i);
-      if (!yoyTableMatch) return null;
+      // The previous regex was too greedy and matched from the first table to the YoY caption.
+      // We need to find all tables and then filter for the one with the YoY caption.
+      const tables = html.match(/<table[^>]*>[\s\S]*?<\/table>/gi);
+      if (!tables) return null;
       
-      const tableHtml = yoyTableMatch[0];
+      let yoyTableHtml = null;
+      for (const table of tables) {
+          if (table.match(/<caption>[^<]*year-over-year[^<]*<\/caption>/i)) {
+              yoyTableHtml = table;
+              break;
+          }
+      }
       
-      // Extract the first row (most recent month) after headers
-      const rowMatch = tableHtml.match(/<tr><td>([^<]+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/);
+      if (!yoyTableHtml) return null;
+      
+      // Extract the first row (most recent month) after headers in the tbody
+      const tbodyMatch = yoyTableHtml.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+      const searchArea = tbodyMatch ? tbodyMatch[1] : yoyTableHtml;
+      
+      const rowMatch = searchArea.match(/<tr>\s*<td>([^<]+)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<\/tr>/i);
       if (!rowMatch) return null;
       
       return {
@@ -107,7 +119,7 @@ const DataFetcher = (() => {
           coreCpi: rowMatch[3].trim(),    // "2.82"
           pce: rowMatch[4].trim(),        // PCE YoY
           corePce: rowMatch[5].trim(),    // Core PCE YoY
-          updated: rowMatch[6].trim(),    // "05/13"
+          updated: rowMatch[6].trim(),    // "05/14"
       };
   }
 

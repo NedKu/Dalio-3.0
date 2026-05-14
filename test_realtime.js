@@ -33,14 +33,25 @@ const testDataFetcher = {
     function parseClevelandNowcastTable(html) {
       if (!html || typeof html !== 'string') return null;
       
-      // Extract the table with inflation data
-      const tableMatch = html.match(/<table[^>]*>[\s\S]*?<tr><th[^>]*>Month<\/th><th[^>]*>CPI<\/th>[\s\S]*?<\/table>/);
-      if (!tableMatch) return null;
+      // CRITICAL: Extract YEAR-OVER-YEAR table ONLY (not month-over-month)
+      const tables = html.match(/<table[^>]*>[\s\S]*?<\/table>/gi);
+      if (!tables) return null;
       
-      const tableHtml = tableMatch[0];
+      let yoyTableHtml = null;
+      for (const table of tables) {
+          if (table.match(/<caption>[^<]*year-over-year[^<]*<\/caption>/i)) {
+              yoyTableHtml = table;
+              break;
+          }
+      }
       
-      // Extract the first row (most recent month) after headers
-      const rowMatch = tableHtml.match(/<tr><td>([^<]+)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/);
+      if (!yoyTableHtml) return null;
+      
+      // Extract the first row (most recent month) after headers in the tbody
+      const tbodyMatch = yoyTableHtml.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i);
+      const searchArea = tbodyMatch ? tbodyMatch[1] : yoyTableHtml;
+      
+      const rowMatch = searchArea.match(/<tr>\s*<td>([^<]+)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<\/tr>/i);
       if (!rowMatch) return null;
       
       return {
