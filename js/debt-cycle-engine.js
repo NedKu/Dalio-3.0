@@ -131,7 +131,8 @@ const DebtCycleEngine = (() => {
 
     let evidence = `10Y-2Y利差: ${spread10Y2Y != null ? spread10Y2Y.toFixed(2) + '%' : 'N/A'} (${_link('T10Y2Y', macroMeta.spread10Y2Y)}) | ` +
                    `整體債務比: ${debtGDP != null ? debtGDP.toFixed(1) + '%' : 'N/A'} (${_link('GFDEGDQ188S', macroMeta.debtGDP)}) | ` +
-                   `信用利差: ${creditSpread != null ? creditSpread.toFixed(2) + '%' : 'N/A'} (${_link('BAMLH0A0HYM2', macroMeta.creditSpread)})`;
+                   `信用利差: ${creditSpread != null ? creditSpread.toFixed(2) + '%' : 'N/A'} (${_link('BAMLH0A0HYM2', macroMeta.creditSpread)}) | ` +
+                   `M2成長(YoY): ${m2Growth != null ? m2Growth.toFixed(2) + '%' : 'N/A'} (${_link('M2SL', macroMeta.m2Growth)})`;
 
     // Check for Inflationary vs Deflationary Depression variant
     let isInflationary = false;
